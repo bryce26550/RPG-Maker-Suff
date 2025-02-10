@@ -63,13 +63,6 @@
         const gray = args.gray !== undefined ? Number(args.gray) : 0;
         const duration = args.duration !== undefined ? Number(args.duration) : 60;
 
-
-        console.log($gameMap, $gameMap._interpreter);
-
-        //if ($gameMap && $gameMap._interpreter) {
         $gameScreen.startTint([red, green, blue, gray], duration);
-        //} else {
-        console.warn("ScreenTint Plugin: Unable to tint screen, gameScreen not initialized.");
-        //}
     });
 })();

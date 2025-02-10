@@ -63,6 +63,8 @@
         const gray = args.gray !== undefined ? Number(args.gray) : 0;
         const duration = args.duration !== undefined ? Number(args.duration) : 60;
 
+        console.log(`TintScreen Command Executed: red=${red}, green=${green}, blue=${blue}, gray=${gray}, duration=${duration}`);
+
         $gameScreen.startTint([red, green, blue, gray], duration);
     });
 })();

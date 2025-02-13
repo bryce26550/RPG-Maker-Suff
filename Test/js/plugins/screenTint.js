@@ -1,58 +1,47 @@
-//=============================================================================
-// ScreenTint
-// For RPG Maker MZ
-// by Bryce Lynd
-//=============================================================================
-
-var Imported = Imported || {};
-Imported.McKathlin_DayNight = true;
-
-var McKathlin = McKathlin || {};
-McKathlin.DayNight = McKathlin.DayNight || {};
-
 /*:
  * @target MZ
  * @plugindesc Allows the use of simple screen tints by keyword in plugin commands.
  * @author 
  *
- * @param Simple Lighting Presets
- * @type struct<lightingPreset>[]
- * @default ["{\"keyword\":\"Bright\",\"tone\":\"{\\\"red\\\":\\\"0\\\",\\\"green\\\":\\\"0\\\",\\\"blue\\\":\\\"0\\\",\\\"gray\\\":\\\"0\\\"}\"}", "{\"keyword\":\"Red\",\"tone\":\"{\\\"red\\\":\\\"255\\\",\\\"green\\\":\\\"0\\\",\\\"blue\\\":\\\"0\\\",\\\"gray\\\":\\\"0\\\"}\"}"]
- * @desc These single-tone lighting presets can be invoked by keyword in plugin commands.
+ * @param Simple Screen Tints
+ * @type struct<screenTint>[]
+ * @default ["{\"keyword\":\"Bright\",\"tone\":\"{\\\"red\\\":\\\"0\\\",\\\"green\\\":\\\"0\\\",\\\"blue\\\":\\\"0\\\",\\\"gray\\\":\\\"0\\\"}\"}"]
+ * @desc These single-tone screen tints can be invoked by keyword in plugin commands.
  *
- * @command useLightingPreset
- * @text Use Lighting Preset
- * @desc Tint screen to a lighting preset defined in the plugin parameters.
+ * @command ApplyScreenTint
+ * @text Apply Screen Tint
+ * @desc Applies a screen tint based on the keyword.
  *
- * @arg lightingKeyword
- * @text Lighting Keyword
- * @desc The keyword of the lighting preset, as defined in the plugin parameters.
+ * @arg keyword
+ * @type string
+ * @default Bright
+ * @desc The keyword of the screen tint to apply.
  *
  * @arg duration
- * @text Duration
+ * @type number
  * @default 60
- * @desc Frames (1/60 sec) over which to tint screen to lighting.
+ * @desc Duration of the tint effect in frames (60 frames = 1 second).
  *
  * @help
  * == Instructions ==
  * 1. In the Plugin Manager, enable this plugin.
- * 2. Define your lighting presets in the plugin parameters.
- * 3. Use the Plugin Command "Use Lighting Preset" with the desired keyword.
+ * 2. Define your screen tints in the plugin parameters.
+ * 3. Use the Plugin Command "Apply Screen Tint" with the desired keyword.
  *
  * == Example Plugin Command ==
- * UseLightingPreset: (Keyword: Bright, Duration: 60)
+ * ApplyScreenTint: (Keyword: Bright, Duration: 60)
  */
 
-/*~struct~lightingPreset:
+/*~struct~screenTint:
  * @param keyword
  * @text Keyword
  * @type text
- * @desc The keyword to call for this lighting preset in plugin commands.
+ * @desc The keyword to call for this screen tint in plugin commands.
  * 
  * @param tone
  * @text Tone
  * @type struct<tone>
- * @desc The screen tone to apply when a plugin command calls for this preset.
+ * @desc The screen tone to apply when a plugin command calls for this tint.
  */
 
 /*~struct~tone:
@@ -90,27 +79,27 @@ McKathlin.DayNight = McKathlin.DayNight || {};
  */
 
 (() => {
-    const pluginName = "SimpleScreenTint";
+    const pluginName = "ScreenTint";
     const parameters = PluginManager.parameters(pluginName);
-    const lightingPresets = JSON.parse(parameters["Simple Lighting Presets"]).map(preset => JSON.parse(preset));
+    const screenTints = JSON.parse(parameters["Simple Screen Tints"]).map(tint => JSON.parse(tint));
 
-    PluginManager.registerCommand(pluginName, "useLightingPreset", args => {
-        const keyword = args.lightingKeyword;
+    PluginManager.registerCommand(pluginName, "ApplyScreenTint", args => {
+        const keyword = args.keyword;
         const duration = Number(args.duration || 60);
-        const preset = lightingPresets.find(p => p.keyword === keyword);
+        const tint = screenTints.find(t => t.keyword === keyword);
 
-        if (preset) {
-            const tone = JSON.parse(preset.tone);
+        if (tint) {
+            const tone = JSON.parse(tint.tone);
             const red = Number(tone.red);
             const green = Number(tone.green);
             const blue = Number(tone.blue);
             const gray = Number(tone.gray);
 
-            console.log(`Applying Lighting Preset: keyword=${keyword}, red=${red}, green=${green}, blue=${blue}, gray=${gray}, duration=${duration}`);
+            console.log(`Applying Screen Tint: keyword=${keyword}, red=${red}, green=${green}, blue=${blue}, gray=${gray}, duration=${duration}`);
 
             $gameScreen.startTint([red, green, blue, gray], duration);
         } else {
-            console.warn(`Lighting Preset not found for keyword: ${keyword}`);
+            console.warn(`Screen Tint not found for keyword: ${keyword}`);
         }
     });
 })();

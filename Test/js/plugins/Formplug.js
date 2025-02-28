@@ -1,6 +1,6 @@
 /*:
  * @target MZ
- * @plugindesc Allows users to give a thumbs up, down or wiggle to Formbar and interact with Formbar API via socket.io-client.
+ * @plugindesc Allows users to give a thumbs up, down or Wiggle to Formbar and interact with Formbar API via socket.io-client.
  * @author Bryce Lynd
  * 
  * @command thumbsUp
@@ -11,7 +11,7 @@
  * @text Thumbs Down
  * @desc Sends a ThumbsDown
  * 
- * @command wiggle
+ * @command Wiggle
  * @text Wiggle
  * @desc Sends a Wiggle
  * 
@@ -19,26 +19,38 @@
  * @text Opps
  * @desc Removes the user's vote
  * 
+ * @param Formbar URL
+ * @text Formbar URL
+ * @desc The URL of the Formbar server.
+ * @type text
+ * @default https://formbeta.yorktechapps.com/
+ * 
+ * @param API Key
+ * @text API Key
+ * @desc The API key for Formbar.
+ * @type text
+ * @default 
+ * 
  * @help
  * This plugin allows users to give a thumbs up, down or wiggle to Formbar.
  * 
  * Plugin Commands:
  *  Formplug thumbsUp
  *  Formplug thumbsDown
- *  Formplug wiggle
+ *  Formplug Wiggle
  *  Formplug opps
  * 
  */
 
 (() => {
-    const FORMBAR_URL = 'https://formbeta.yorktechapps.com/';
-    const API_KEY = '2846ed55b81943cb2b3dcd9a6b1bd31b1fb7d51fced5704fff558ae2da7de39af7a10707acb3f86abd4969e40eff099cee1a3840907370e62881ca8d227c06b9';
+    const parameters = PluginManager.parameters('Formplug');
+    var FORMBAR_URL = parameters['Formbar URL'];
+    var API_KEY = parameters['API Key'];
     // Check if Socket.IO is already loaded
     if (typeof io === "undefined") {
         let script = document.createElement("script");
         script.src = "https://cdn.socket.io/4.7.2/socket.io.min.js";
         script.onload = function () {
-            console.log("Socket.IO loaded!");
             startSocketConnection(); // Call function to initialize socket after loading
         };
         document.head.appendChild(script);
@@ -51,7 +63,7 @@
             extraHeaders: {
                 api: API_KEY
             }
-        }); // Replace with your server URL
+        });
 
         socket.on('connect', () => {
             console.log('Connected');
@@ -96,24 +108,15 @@
         });
 
         PluginManager.registerCommand("Formplug", "thumbsUp", () => {
-            console.log("ur mum");
-            
             socket.emit("pollResp", "Up")
         });
         PluginManager.registerCommand("Formplug", "thumbsDown", () => {
-            console.log("stink = you");
-            
-
             socket.emit('pollResp', "Down");
         });
-        PluginManager.registerCommand("Formplug", "wiggle", () => {
-            console.log("not sure");
-            
-            socket.emit('pollResp', 'wiggle');
+        PluginManager.registerCommand("Formplug", "Wiggle", () => {
+            socket.emit('pollResp', 'Wiggle');
         });
         PluginManager.registerCommand("Formplug", "opps", () => {
-            console.log("made mistake");
-            
             socket.emit('pollResp','opps');
         });
     }

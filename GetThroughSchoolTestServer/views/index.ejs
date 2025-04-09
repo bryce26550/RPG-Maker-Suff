@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPG Maker Controller</title>
+</head>
+<body>
+    <h1>Control RPG Maker Game</h1>
+    <form id="switchForm">
+        <h2>Switches</h2>
+        <div id="switches"></div>
+        <button type="submit">Save Changes</button>
+    </form>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:3000");
+
+        ws.onopen = () => {
+            console.log("Connected to WebSocket server.");
+        };
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            console.log("Received message from server:", message);
+
+            if (message.type === "init" || message.type === "update") {
+                const gameData = message.data;
+                console.log("Current gameData:", gameData);
+
+                const switchesDiv = document.getElementById("switches");
+                switchesDiv.innerHTML = ""; // Clear existing switches
+
+                Object.keys(gameData.switches).forEach((switchId) => {
+                    const switchState = gameData.switches[switchId];
+                    const switchName = gameData.switchNames[switchId] || `Switch ${switchId}`; // Default to "Switch {ID}" if no name
+
+                    const div = document.createElement("div");
+                    const label = document.createElement("label");
+                    label.textContent = switchName;
+                    label.setAttribute("for", `switch-${switchId}`);
+
+                    const checkbox = document.createElement("input");
+                    checkbox.type = "checkbox";
+                    checkbox.id = `switch-${switchId}`;
+                    checkbox.checked = switchState;
+
+                    div.appendChild(label);
+                    div.appendChild(checkbox);
+                    switchesDiv.appendChild(div);
+                });
+            }
+        };
+
+        document.getElementById("switchForm").addEventListener("submit", (event) => {
+            event.preventDefault();
+
+            const switches = {};
+            const checkboxes = document.querySelectorAll("#switches input[type='checkbox']");
+
+            checkboxes.forEach((checkbox) => {
+                const switchId = checkbox.id.split("-")[1];
+                switches[switchId] = checkbox.checked;
+            });
+
+            console.log("Submitting switches to server:", switches);
+
+            ws.send(JSON.stringify({ type: "updateSwitches", data: { switches } }));
+        });
+    </script>
+</body>
+</html>

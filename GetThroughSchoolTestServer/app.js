@@ -84,4 +84,34 @@ app.get("/", (req, res) => {
     res.render("index", { gameData });
 });
 
+app.post("/oauth/token", (req, res) => {
+    const { token } = req.body;
+
+    if (!token) {
+        return res.status(400).json({ error: "Token is required" });
+    }
+
+    console.log("Received OAuth token:", token);
+
+    // Simulate fetching user permissions from FormBeta
+    fetch("https://formbeta.yorktechapps.com/api/permissions", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+    })
+        .then((response) => response.json())
+        .then((data) => {
+            console.log("User permissions:", data);
+
+            if (data.permissions >= 4) {
+                res.json({ success: true, permissions: data.permissions });
+            } else {
+                res.json({ success: false, permissions: data.permissions });
+            }
+        })
+        .catch((error) => {
+            console.error("Error validating token:", error);
+            res.status(500).json({ error: "Failed to validate token" });
+        });
+});
+
 server.listen(PORT, () => console.log(`Server running on http://172.16.3.197:${PORT}`));

@@ -1,8 +1,13 @@
 const express = require("express");
 const cors = require("cors");
 const ejs = require("ejs");
+const jwt = require('jsonwebtoken');
+const session = require('express-session');
+const AUTH_URL = 'https://formbeta.yorktechapps.com/oauth'; // ... or the address to the instance of fbjs you wish to connect to
+const THIS_URL = 'http://172.16.3.197:3000/login'; // ... or whatever the address to your application is
+const API_KEY = '2846ed55b81943cb2b3dcd9a6b1bd31b1fb7d51fced5704fff558ae2da7de39af7a10707acb3f86abd4969e40eff099cee1a3840907370e62881ca8d227c06b9'
+// ... or whatever the API key is for your application
 const http = require("http");
-const session = require("express-session");
 const { WebSocketServer } = require("ws");
 
 const app = express();
@@ -15,21 +20,26 @@ app.set("view engine", "ejs");
 app.use(express.json());
 app.use(cors());
 app.use(session({
-    secret: 'ohnose!',
+    secret: 'mySeceretLittleKey',
     resave: false,
     saveUninitialized: true
 }));
 
 let gameData = { switches: {}, switchNames: [] }; // Add switchNames to gameData
 
-function permCheck (req, res, next) {
+function permCheck(req, res, next) {
     req.session.permisions = 4;
-    if (req.session.permisions >= 4){
+    if (req.session.permisions >= 4) {
         next();
     } else {
         res.status(403).send("Permission denied: Insufficient permissions to access this resource.");
     }
 }
+
+function isAuthenticated(req, res, next) {
+    if (req.session.user) next()
+    else res.redirect('/login')
+};
 
 // WebSocket connection handler
 wss.on("connection", (ws) => {
@@ -79,10 +89,39 @@ wss.on("connection", (ws) => {
 });
 
 // Serve the webpage
-app.get("/", (req, res) => {
-    console.log("Serving webpage with gameData:", gameData);
-    res.render("index", { gameData });
+app.get("/", isAuthenticated, (req, res) => {
+    try {
+        fetch(`${AUTH_URL}/api/me`, {
+            method: 'GET',
+            headers: {
+                'API': API_KEY,
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                return response.json();
+            })
+            .then(data => {
+                res.send(data);
+            })
+
+        res.render("index", { gameData });
+    } catch (error) {
+        res.send(error.message);
+    }
 });
+
+app.get('/login', (req, res) => {
+	console.log(req.query.token)
+	if (req.query.token) {
+		let tokenData = jwt.decode(req.query.token)
+		req.session.token = tokenData
+		req.session.user = tokenData.username
+		res.redirect('/')
+	} else {
+		res.redirect(`${AUTH_URL}?redirectURL=${THIS_URL}`)
+	}
+})
 
 app.post("/oauth/token", (req, res) => {
     const { token } = req.body;

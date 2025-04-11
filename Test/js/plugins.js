@@ -8,5 +8,5 @@ var $plugins =
 {"name":"Template","status":false,"description":"xxxxx  // Describe your plugin","parameters":{"xxxxx      //name of a parameter you want the user to edit":"zzzzz    // set default value for the parameter"}},
 {"name":"ScreenTint","status":true,"description":"Allows changing screen tint dynamically via plugin commands.","parameters":{}},
 {"name":"Formplug","status":false,"description":"Allows users to give a thumbs up, down or Wiggle to Formbar and interact with Formbar API via socket.io-client.","parameters":{"Formbar URL":"https://formbeta.yorktechapps.com/","API Key":"2846ed55b81943cb2b3dcd9a6b1bd31b1fb7d51fced5704fff558ae2da7de39af7a10707acb3f86abd4969e40eff099cee1a3840907370e62881ca8d227c06b9"}},
-{"name":"getThroughSchoolPlugin/conection","status":true,"description":"Syncs game switches with an external server using WebSockets","parameters":{}}
+{"name":"getThroughSchoolPlugin/conection","status":true,"description":"Syncs game switches with an external server using WebSockets and handles FormBeta OAuth authentication.","parameters":{}}
 ];

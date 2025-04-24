@@ -5,11 +5,6 @@
 
 (() => {
     const SERVER_URL = "ws://172.16.3.197:3000";
-    const OAUTH_URL = "https://formbeta.yorktechapps.com/oauth";
-    const CLIENT_ID = "your-client-id"; // Replace with your FormBeta OAuth client ID
-    const REDIRECT_URI = "http://localhost:3000/oauth/callback"; // Replace with your server's callback URL
-    const RESPONSE_TYPE = "token"; // Use "token" for implicit flow
-    const SCOPE = "profile"; // Replace with the required scope(s)
 
     let ws;
 
@@ -69,6 +64,61 @@
         } else {
             console.error("WebSocket is not open. Cannot send game data.");
         }
+    }
+
+    function openOAuthPopup() {
+        const redirectUrl = "http://172.16.3.197:3000";
+        const authUrl = "https://formbeta.yorktechapps.com/oauth";
+        jwt.verify(exampleToken, `-----BEGIN PUBLIC KEY----- 
+    MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArY7ATw0h8nGw97RGNyQu 
+    CjknRHvTejTfWsRX4gSCZg1WSptruk1l0LtYh3P+lA/ux2vDu50fzzub0+t97Ssl 
+    q2VCi+q25uEN5KUFX7hxxmwFvK/5GqsJ/NoM8LQXycnGVtaWZATaE58vLbdZ/nQK 
+    bPiqZ8GOKcvRbPVK9z/QMvuB6E6NOq9bRioQZeESDZP9uxiqQ7DT/1M275pFCcE3 
+    DYrw1aoRqQ9R9YrglsSAXuQcYphKr6O0b0OouokyUex/AyWa/GGQl8Ws1XIe2WZG 
+    UJV29AyzGGU1mSFJV563+N4o0cF/6tCUiy/mikPBVW08mUkPg9qjy/yd5cLChBi8 
+    ZwIDAQAB 
+    -----END PUBLIC KEY-----`, { algorithms: ['RS256'] })
+
+        const popup = window.open(`${authUrl}?redirectURL=${redirectUrl}`, "OAuthPopup", "width=600,height=600");
+
+        const interval = setInterval(() => {
+            try {
+                if (popup.location.href.startsWith(redirectUrl)) {
+                    const urlParams = new URLSearchParams(popup.location.search);
+                    const code = urlParams.get("code");
+                    console.log("Authorization Code:", code);
+                    popup.close();
+                    clearInterval(interval);
+
+                    // Exchange the code for an access token
+                    exchangeAuthorizationCode(code);
+                }
+            } catch (e) {
+                // Ignore cross-origin errors until redirected
+            }
+        }, 1000);
+    }
+
+    function exchangeAuthorizationCode(code) {
+        const data = {
+            client_id: "YOUR_CLIENT_ID",
+            client_secret: "YOUR_CLIENT_SECRET",
+            code: code,
+            redirect_url: "http://172.16.3.197:3000",
+            grant_type: "authorization_code"
+        };
+
+        fetch("https://formbeta.yorktechapps.com/oauth/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        })
+            .then(response => response.json())
+            .then(tokenData => {
+                console.log("Access Token:", tokenData.access_token);
+                // Store the token for future use
+            })
+            .catch(error => console.error("Error fetching token:", error));
     }
 
     const _Scene_Boot_start = Scene_Boot.prototype.start;

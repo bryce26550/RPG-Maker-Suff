@@ -22,19 +22,10 @@ app.use(cors());
 app.use(session({
     secret: 'mySeceretLittleKey',
     resave: false,
-    saveUninitialized: true
+    saveUninitialized: false
 }));
 
 let gameData = { switches: {}, switchNames: [] }; // Add switchNames to gameData
-
-function permCheck(req, res, next) {
-    req.session.permisions = 4;
-    if (req.session.permisions >= 4) {
-        next();
-    } else {
-        res.status(403).send("Permission denied: Insufficient permissions to access this resource.");
-    }
-}
 
 function isAuthenticated(req, res, next) {
     if (req.session.user) next()
@@ -91,20 +82,6 @@ wss.on("connection", (ws) => {
 // Serve the webpage
 app.get("/", isAuthenticated, (req, res) => {
     try {
-        fetch(`${AUTH_URL}/api/me`, {
-            method: 'GET',
-            headers: {
-                'API': API_KEY,
-                'Content-Type': 'application/json'
-            }
-        })
-            .then(response => {
-                return response.json();
-            })
-            .then(data => {
-                res.send(data);
-            })
-
         res.render("index", { gameData });
     } catch (error) {
         res.send(error.message);
@@ -112,45 +89,14 @@ app.get("/", isAuthenticated, (req, res) => {
 });
 
 app.get('/login', (req, res) => {
-	console.log(req.query.token)
-	if (req.query.token) {
-		let tokenData = jwt.decode(req.query.token)
-		req.session.token = tokenData
-		req.session.user = tokenData.username
-		res.redirect('/')
-	} else {
-		res.redirect(`${AUTH_URL}?redirectURL=${THIS_URL}`)
-	}
-})
-
-app.post("/oauth/token", (req, res) => {
-    const { token } = req.body;
-
-    if (!token) {
-        return res.status(400).json({ error: "Token is required" });
-    }
-
-    console.log("Received OAuth token:", token);
-
-    // Simulate fetching user permissions from FormBeta
-    fetch("https://formbeta.yorktechapps.com/api/permissions", {
-        method: "GET",
-        headers: { Authorization: `Bearer ${token}` },
-    })
-        .then((response) => response.json())
-        .then((data) => {
-            console.log("User permissions:", data);
-
-            if (data.permissions >= 4) {
-                res.json({ success: true, permissions: data.permissions });
-            } else {
-                res.json({ success: false, permissions: data.permissions });
-            }
-        })
-        .catch((error) => {
-            console.error("Error validating token:", error);
-            res.status(500).json({ error: "Failed to validate token" });
-        });
+    if (req.query.token) {
+         let tokenData = jwt.decode(req.query.token);
+         req.session.token = tokenData;
+         req.session.user = tokenData.username;
+         res.redirect('/');
+    } else {
+         res.redirect(`${AUTH_URL}?redirectURL=${THIS_URL}`);
+    };
 });
 
 server.listen(PORT, () => console.log(`Server running on http://172.16.3.197:${PORT}`));

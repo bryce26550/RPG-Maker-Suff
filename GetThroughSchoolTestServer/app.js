@@ -22,7 +22,7 @@ app.use(cors());
 app.use(session({
     secret: 'mySeceretLittleKey',
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: true
 }));
 
 let gameData = { switches: {}, switchNames: [] }; // Add switchNames to gameData
@@ -82,7 +82,8 @@ wss.on("connection", (ws) => {
 // Serve the webpage
 app.get("/", isAuthenticated, (req, res) => {
     try {
-        res.render("index", { gameData });
+        const username = req.session.user; // Retrieve the username from the session
+        res.render("index", { username }); // Pass the username to the template
     } catch (error) {
         res.send(error.message);
     }
@@ -97,6 +98,26 @@ app.get('/login', (req, res) => {
     } else {
          res.redirect(`${AUTH_URL}?redirectURL=${THIS_URL}`);
     };
+});
+
+app.get("/blank", (req, res) => {
+    const username = req.session.username;
+    console.log("Username retrieved from session:", username); // Debugging log
+    res.render("blank", { username });
+});
+
+app.post("/store-username", (req, res) => {
+    const { username } = req.body;
+
+    if (!username) {
+        return res.status(400).send("Username is required.");
+    }
+
+    // Store the username in the session
+    req.session.username = username;
+    console.log("Username stored in session:", username); // Debugging log
+
+    res.status(200).send("Username stored successfully.");
 });
 
 server.listen(PORT, () => console.log(`Server running on http://172.16.3.197:${PORT}`));

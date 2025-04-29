@@ -69,36 +69,8 @@
     const jwt = "https://cdn.jsdelivr.net/npm/jsonwebtoken-esm@1.0.1/dist/jsonwebtoken-esm.min.js"; // Use the loaded library
     
     function openOAuthPopup() {
-        const redirectUrl = "http://172.16.3.197:3000/blank";
-        const authUrl = "https://formbeta.yorktechapps.com/oauth";
-    //     jwt.verify(`-----BEGIN PUBLIC KEY----- 
-    // MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArY7ATw0h8nGw97RGNyQu 
-    // CjknRHvTejTfWsRX4gSCZg1WSptruk1l0LtYh3P+lA/ux2vDu50fzzub0+t97Ssl 
-    // q2VCi+q25uEN5KUFX7hxxmwFvK/5GqsJ/NoM8LQXycnGVtaWZATaE58vLbdZ/nQK 
-    // bPiqZ8GOKcvRbPVK9z/QMvuB6E6NOq9bRioQZeESDZP9uxiqQ7DT/1M275pFCcE3 
-    // DYrw1aoRqQ9R9YrglsSAXuQcYphKr6O0b0OouokyUex/AyWa/GGQl8Ws1XIe2WZG 
-    // UJV29AyzGGU1mSFJV563+N4o0cF/6tCUiy/mikPBVW08mUkPg9qjy/yd5cLChBi8 
-    // ZwIDAQAB 
-    // -----END PUBLIC KEY-----`, { algorithms: ['RS256'] })
-
-        const popup = window.open(`${authUrl}?redirectURL=${redirectUrl}`, "OAuthPopup", "width=600,height=600");
-
-        const interval = setInterval(() => {
-            try {
-                if (popup.location.href.startsWith(redirectUrl)) {
-                    const urlParams = new URLSearchParams(popup.location.search);
-                    const code = urlParams.get("code");
-                    console.log("Authorization Code:", code);
-                    popup.close();
-                    clearInterval(interval);
-
-                    // Exchange the code for an access token
-                    exchangeAuthorizationCode(code);
-                }
-            } catch (e) {
-                // Ignore cross-origin errors until redirected
-            }
-        }, 1000);
+        const redirectUrl = "http://172.16.3.197:3000/login";
+        const popup = window.open(`${redirectUrl}`, "OAuthPopup", "width=600,height=600");
     }
 
     function exchangeAuthorizationCode(code) {

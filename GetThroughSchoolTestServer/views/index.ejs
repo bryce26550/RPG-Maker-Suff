@@ -7,15 +7,14 @@
 </head>
 <body>
     <h1>Control RPG Maker Game</h1>
-    <h2>Welcome, <span id="username"><%= username %></span></h2> <!-- Display the username -->
     <form id="switchForm">
-        <h3>Switches</h3>
+        <h2>Switches</h2>
         <div id="switches"></div>
         <button type="submit">Save Changes</button>
     </form>
 
     <script>
-        const ws = new WebSocket("ws://localhost:3000");
+        const ws = new WebSocket("ws://172.16.3.197:3000");
 
         ws.onopen = () => {
             console.log("Connected to WebSocket server.");
@@ -63,8 +62,6 @@
                 const switchId = checkbox.id.split("-")[1];
                 switches[switchId] = checkbox.checked;
             });
-
-            console.log("Submitting switches to server:", switches);
 
             ws.send(JSON.stringify({ type: "updateSwitches", data: { switches } }));
         });

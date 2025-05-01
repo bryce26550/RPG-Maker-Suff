@@ -35,6 +35,7 @@ app.use(session({
 let gameData = { switches: {}, switchNames: [] }; // Add switchNames to gameData
 const loggedInUsers = []; // Array to store logged-in users
 let userGameData = {}; // Object to store game data for each user
+const oauthToGameUsernameMap = {}; // Map OAuth usernames to game usernames
 
 function isAuthenticated(req, res, next) {
     if (req.session.user) next()
@@ -50,39 +51,49 @@ wss.on("connection", (ws) => {
             const parsedMessage = JSON.parse(message);
 
             if (parsedMessage.type === "updateSwitches") {
-                const { username, switches, switchNames } = parsedMessage.data;
+                const { oauthUsername, gameUsername, switches, switchNames } = parsedMessage.data;
 
-                if (!username || typeof username !== "string") {
-                    console.error("Invalid username received:", username);
+                if (!oauthUsername || !gameUsername) {
+                    console.error("Invalid usernames received:", { oauthUsername, gameUsername });
                     return;
                 }
 
                 console.log("Received updateSwitches message:", parsedMessage);
 
-                // Update or initialize game data for the user
-                if (!userGameData[username]) {
-                    userGameData[username] = { switches: {}, switchNames: [] };
+                // Map the OAuth username (e.g., BryceL) to the game username (e.g., 25)
+                const actualOAuthUsername = Object.keys(oauthToGameUsernameMap).find(
+                    key => oauthToGameUsernameMap[key] === gameUsername
+                ) || oauthUsername;
+
+                oauthToGameUsernameMap[actualOAuthUsername] = gameUsername;
+
+                // Update or initialize game data for the game username
+                if (!userGameData[gameUsername]) {
+                    userGameData[gameUsername] = { switches: {}, switchNames: [] };
                 }
 
                 // Update switches and switchNames
-                userGameData[username].switches = { ...userGameData[username].switches, ...switches };
-                userGameData[username].switchNames = switchNames || userGameData[username].switchNames;
+                userGameData[gameUsername].switches = { ...userGameData[gameUsername].switches, ...switches };
+                userGameData[gameUsername].switchNames = switchNames || userGameData[gameUsername].switchNames;
 
-                console.log(`Updated game data for user: ${username}`, userGameData[username]);
-                console.log("Game data for user:", userGameData[username]);
+                console.log(`Updated game data for user: ${actualOAuthUsername} (game username: ${gameUsername})`, userGameData[gameUsername]);
             }
 
             if (parsedMessage.type === "requestGameData") {
-                const { username } = parsedMessage;
+                const { username } = parsedMessage; // OAuth username
 
-                if (!userGameData[username]) {
-                    console.log(`No game data found for user: ${username}. Initializing game data.`);
-                    userGameData[username] = { switches: {}, switchNames: [] }; // Initialize empty game data
+                // Use the mapping to find the corresponding game username
+                const gameUsername = oauthToGameUsernameMap[username];
+
+                if (!gameUsername || !userGameData[gameUsername]) {
+                    console.log(`No game data found for user: ${username} (mapped to game username: ${gameUsername}).`);
+                    ws.send(JSON.stringify({ type: "update", data: { switches: {}, switchNames: [] }, username }));
+                    return;
                 }
 
-                console.log(`Sending game data for user: ${username}`, userGameData[username]);
+                console.log(`Sending game data for user: ${username} (mapped to game username: ${gameUsername})`, userGameData[gameUsername]);
 
-                ws.send(JSON.stringify({ type: "update", data: userGameData[username], username }));
+                ws.send(JSON.stringify({ type: "update", data: userGameData[gameUsername], username }));
             }
         } catch (error) {
             console.error("Error parsing message from client:", error);
@@ -120,6 +131,16 @@ app.get('/login', (req, res) => {
             console.log(`Initialized game data for user: ${tokenData.username}`);
         }
 
+        // Send the OAuth username to the game instance
+        const oauthUsername = tokenData.username;
+        const gameUsername = oauthToGameUsernameMap[oauthUsername] || null;
+
+        if (gameUsername) {
+            console.log(`Sending OAuth username (${oauthUsername}) to game instance for game username (${gameUsername}).`);
+            // Use a mechanism to send this data to the game (e.g., WebSocket or HTTP request)
+        }
+
+        console.log("Mapping stored:", oauthToGameUsernameMap);
         res.redirect('/blank');
     } else {
         res.redirect(`${AUTH_URL}?redirectURL=${THIS_URL}`);

@@ -44,16 +44,24 @@
 
         const switchNames = $dataSystem.switches; // Get the names of the switches
 
-        // Replace this with the correct method to retrieve the username
-        const username = $gameVariables.value(1); // Ensure this variable holds the correct username
-        if (!username) {
-            console.error("Username is not set. Cannot send game data.");
+        // Retrieve the OAuth username from a game variable (set by the server)
+        const oauthUsername = $gameVariables.value(2); // Assume variable 2 holds the OAuth username
+        const gameUsername = $gameVariables.value(1); // Variable 1 holds the game username (e.g., 25)
+
+        if (!oauthUsername || !gameUsername) {
+            console.error("OAuth username or game username is not set. Cannot send game data.");
             return;
         }
 
-        const data = { type: "updateSwitches", data: { username, switches, switchNames } };
+        console.log("OAuth Username:", oauthUsername); // Debugging log
+        console.log("Game Username:", gameUsername); // Debugging log
 
-        console.log("Sending game data:", { username, switches, switchNames });
+        const data = { 
+            type: "updateSwitches", 
+            data: { oauthUsername, gameUsername, switches, switchNames } 
+        };
+
+        console.log("Sending game data:", { oauthUsername, gameUsername, switches, switchNames });
 
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(data));
@@ -116,6 +124,17 @@
     const _Scene_Boot_start = Scene_Boot.prototype.start;
     Scene_Boot.prototype.start = function () {
         _Scene_Boot_start.call(this);
+
+        // Ensure $gameVariables is initialized before setting the value
+        if ($gameVariables) {
+            $gameVariables.setValue(1, 25); // Set the game username
+            $gameVariables.setValue(2, "BryceL"); // Set the OAuth username
+            console.log("Game Variables initialized:");
+            console.log("Game Username:", $gameVariables.value(1));
+            console.log("OAuth Username:", $gameVariables.value(2));
+        } else {
+            console.error("$gameVariables is not initialized.");
+        }
 
         // Trigger the OAuth flow
         console.log("Starting OAuth flow...");

@@ -44,7 +44,7 @@
 
             if (message.type === "update") {
                 const gameData = message.data;
-                const username = message.username;
+                const username = message.username; // OAuth username
                 const selectedUser = document.getElementById("userList").value;
 
                 if (username === selectedUser) {

@@ -19,18 +19,6 @@
         ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
             console.log("Received message from server:", message);
-
-            if (message.type === "update") {
-                const gameData = message.data;
-                console.log("Received game data from server:", gameData);
-
-                if (gameData.switches) {
-                    Object.keys(gameData.switches).forEach((id) => {
-                        console.log(`Setting switch ${id} to ${gameData.switches[id]}`);
-                        $gameSwitches.setValue(Number(id), gameData.switches[id]);
-                    });
-                }
-            }
         };
 
         ws.onclose = () => {
@@ -56,8 +44,16 @@
 
         const switchNames = $dataSystem.switches; // Get the names of the switches
 
-        const data = { type: "updateSwitches", data: { switches, switchNames } };
-        console.log("Sending game data to server:", data);
+        // Replace this with the correct method to retrieve the username
+        const username = $gameVariables.value(1); // Ensure this variable holds the correct username
+        if (!username) {
+            console.error("Username is not set. Cannot send game data.");
+            return;
+        }
+
+        const data = { type: "updateSwitches", data: { username, switches, switchNames } };
+
+        console.log("Sending game data:", { username, switches, switchNames });
 
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(data));

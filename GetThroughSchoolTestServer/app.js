@@ -33,6 +33,8 @@ app.use(session({
 }));
 
 let gameData = { switches: {}, switchNames: [] }; // Add switchNames to gameData
+const loggedInUsers = []; // Array to store logged-in users
+let userGameData = {}; // Object to store game data for each user
 
 function isAuthenticated(req, res, next) {
     if (req.session.user) next()
@@ -43,34 +45,44 @@ function isAuthenticated(req, res, next) {
 wss.on("connection", (ws) => {
     console.log("A client connected via WebSocket.");
 
-    // Send the current game data to the newly connected client
-    ws.send(JSON.stringify({ type: "init", data: gameData }));
-
-    // Handle incoming messages from clients
     ws.on("message", (message) => {
         try {
             const parsedMessage = JSON.parse(message);
 
             if (parsedMessage.type === "updateSwitches") {
-                const { switches, switchNames } = parsedMessage.data;
+                const { username, switches, switchNames } = parsedMessage.data;
 
-                // Update the gameData switches and switchNames
-                if (switches) {
-                    Object.keys(switches).forEach((switchId) => {
-                        gameData.switches[switchId] = switches[switchId];
-                    });
+                if (!username || typeof username !== "string") {
+                    console.error("Invalid username received:", username);
+                    return;
                 }
 
-                if (switchNames) {
-                    gameData.switchNames = switchNames;
+                console.log("Received updateSwitches message:", parsedMessage);
+
+                // Update or initialize game data for the user
+                if (!userGameData[username]) {
+                    userGameData[username] = { switches: {}, switchNames: [] };
                 }
 
-                // Broadcast the updated gameData to all connected clients
-                wss.clients.forEach((client) => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({ type: "update", data: gameData }));
-                    }
-                });
+                // Update switches and switchNames
+                userGameData[username].switches = { ...userGameData[username].switches, ...switches };
+                userGameData[username].switchNames = switchNames || userGameData[username].switchNames;
+
+                console.log(`Updated game data for user: ${username}`, userGameData[username]);
+                console.log("Game data for user:", userGameData[username]);
+            }
+
+            if (parsedMessage.type === "requestGameData") {
+                const { username } = parsedMessage;
+
+                if (!userGameData[username]) {
+                    console.log(`No game data found for user: ${username}. Initializing game data.`);
+                    userGameData[username] = { switches: {}, switchNames: [] }; // Initialize empty game data
+                }
+
+                console.log(`Sending game data for user: ${username}`, userGameData[username]);
+
+                ws.send(JSON.stringify({ type: "update", data: userGameData[username], username }));
             }
         } catch (error) {
             console.error("Error parsing message from client:", error);
@@ -93,13 +105,35 @@ app.get("/", (req, res) => {
 
 app.get('/login', (req, res) => {
     if (req.query.token) {
-         let tokenData = jwt.verify(req.query.token, KEY, { algorithms: ['RS256'] });
-         req.session.token = tokenData;
-         req.session.user = tokenData.username;
-         res.redirect('/blank');
+        let tokenData = jwt.verify(req.query.token, KEY, { algorithms: ['RS256'] });
+        req.session.token = tokenData;
+        req.session.user = tokenData.username;
+
+        // Add the user to the logged-in users list if not already present
+        if (!loggedInUsers.includes(tokenData.username)) {
+            loggedInUsers.push(tokenData.username);
+        }
+
+        // Initialize game data for the user if it doesn't exist
+        if (!userGameData[tokenData.username]) {
+            userGameData[tokenData.username] = { switches: {}, switchNames: [] };
+            console.log(`Initialized game data for user: ${tokenData.username}`);
+        }
+
+        res.redirect('/blank');
     } else {
-         res.redirect(`${AUTH_URL}?redirectURL=${THIS_URL}`);
-    };
+        res.redirect(`${AUTH_URL}?redirectURL=${THIS_URL}`);
+    }
+});
+
+// Endpoint to get the list of logged-in users
+app.get('/logged-in-users', (req, res) => {
+    const usersWithGameData = loggedInUsers.map((username) => ({
+        username,
+        switches: userGameData[username]?.switches || {},
+        switchNames: userGameData[username]?.switchNames || []
+    }));
+    res.json({ users: usersWithGameData });
 });
 
 app.get("/blank", isAuthenticated, (req, res) => {

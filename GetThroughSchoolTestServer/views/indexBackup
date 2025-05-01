@@ -3,29 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Switch Manager</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        #switchForm {
-            display: none;
-            margin-top: 20px;
-        }
-        .switch-container {
-            margin-bottom: 10px;
-        }
-    </style>
+    <title>RPG Maker Controller</title>
 </head>
 <body>
-    <h1>Switch Manager</h1>
-    <label for="userList">Select a User:</label>
+    <h1>Control RPG Maker Game</h1>
+
+    <h2>Select a Logged-In User</h2>
     <select id="userList">
-        <option value="">-- Select a User --</option>
+        <option value="" disabled selected>Select a user</option>
     </select>
 
-    <form id="switchForm">
+    <form id="switchForm" style="display: none;">
         <h2>Switches for <span id="selectedUser"></span></h2>
         <div id="switches"></div>
         <button type="submit">Save Changes</button>
@@ -50,11 +38,6 @@
                 if (username === selectedUser) {
                     console.log("Updating switches for user:", username);
 
-                    if (Object.keys(gameData.switches).length === 0) {
-                        console.log("No switches to display for user:", username);
-                        return;
-                    }
-
                     const switchesDiv = document.getElementById("switches");
                     switchesDiv.innerHTML = ""; // Clear existing switches
 
@@ -65,8 +48,6 @@
                         console.log(`Rendering switch: ${switchName} (ID: ${switchId}, State: ${switchState})`);
 
                         const div = document.createElement("div");
-                        div.className = "switch-container";
-
                         const label = document.createElement("label");
                         label.textContent = switchName;
                         label.setAttribute("for", `switch-${switchId}`);
@@ -87,7 +68,7 @@
             }
         };
 
-        fetch("/logged-in-users")
+        fetch("http://172.16.3.197:3000/logged-in-users")
             .then(response => response.json())
             .then(data => {
                 console.log("Logged-in users:", data.users);
@@ -100,15 +81,13 @@
                     userList.appendChild(option);
                 });
 
+                // Add onchange event listener to userList
                 userList.addEventListener("change", () => {
                     const selectedUser = userList.value;
                     console.log("User selected:", selectedUser);
 
-                    if (selectedUser) {
-                        ws.send(JSON.stringify({ type: "requestGameData", username: selectedUser }));
-                    } else {
-                        document.getElementById("switchForm").style.display = "none";
-                    }
+                    // Request data for the selected user
+                    ws.send(JSON.stringify({ type: "requestUserData", username: selectedUser }));
                 });
             })
             .catch(error => console.error("Error fetching logged-in users:", error));

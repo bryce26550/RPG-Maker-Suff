@@ -51,49 +51,59 @@ wss.on("connection", (ws) => {
             const parsedMessage = JSON.parse(message);
 
             if (parsedMessage.type === "updateSwitches") {
-                const { oauthUsername, gameUsername, switches, switchNames } = parsedMessage.data;
+                const { oauthUsername, switches, switchNames } = parsedMessage.data;
 
-                if (!oauthUsername || !gameUsername) {
-                    console.error("Invalid usernames received:", { oauthUsername, gameUsername });
+                if (!oauthUsername) {
+                    console.error("Invalid OAuth username received:", { oauthUsername });
                     return;
                 }
 
                 console.log("Received updateSwitches message:", parsedMessage);
 
-                // Map the OAuth username (e.g., BryceL) to the game username (e.g., 25)
-                const actualOAuthUsername = Object.keys(oauthToGameUsernameMap).find(
-                    key => oauthToGameUsernameMap[key] === gameUsername
-                ) || oauthUsername;
+                // Get the webpage username from the mapping
+                const webpageUsername = oauthToGameUsernameMap[oauthUsername];
 
-                oauthToGameUsernameMap[actualOAuthUsername] = gameUsername;
-
-                // Update or initialize game data for the game username
-                if (!userGameData[gameUsername]) {
-                    userGameData[gameUsername] = { switches: {}, switchNames: [] };
-                }
-
-                // Update switches and switchNames
-                userGameData[gameUsername].switches = { ...userGameData[gameUsername].switches, ...switches };
-                userGameData[gameUsername].switchNames = switchNames || userGameData[gameUsername].switchNames;
-
-                console.log(`Updated game data for user: ${actualOAuthUsername} (game username: ${gameUsername})`, userGameData[gameUsername]);
-            }
-
-            if (parsedMessage.type === "requestGameData") {
-                const { username } = parsedMessage; // OAuth username
-
-                // Use the mapping to find the corresponding game username
-                const gameUsername = oauthToGameUsernameMap[username];
-
-                if (!gameUsername || !userGameData[gameUsername]) {
-                    console.log(`No game data found for user: ${username} (mapped to game username: ${gameUsername}).`);
-                    ws.send(JSON.stringify({ type: "update", data: { switches: {}, switchNames: [] }, username }));
+                if (!webpageUsername) {
+                    console.error(`No mapping found for OAuth username: ${oauthUsername}`);
                     return;
                 }
 
-                console.log(`Sending game data for user: ${username} (mapped to game username: ${gameUsername})`, userGameData[gameUsername]);
+                // Store user-specific game data
+                userGameData[webpageUsername] = {
+                    switches: { ...switches },
+                    switchNames: switchNames || userGameData[webpageUsername]?.switchNames || []
+                };
 
-                ws.send(JSON.stringify({ type: "update", data: userGameData[gameUsername], username }));
+                console.log(`Updated game data for user: ${webpageUsername}`, userGameData[webpageUsername]);
+
+                // Broadcast the updated game data to all connected clients
+                wss.clients.forEach((client) => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({
+                            type: "update",
+                            data: userGameData[webpageUsername],
+                            username: webpageUsername // Send the webpage username to the client
+                        }));
+                    }
+                });
+            }
+
+            if (parsedMessage.type === "requestGameData") {
+                const { username: webpageUsername } = parsedMessage; // Webpage username
+
+                console.log("Received requestGameData for webpage username:", webpageUsername);
+
+                const gameData = userGameData[webpageUsername];
+
+                if (!gameData) {
+                    console.log(`No game data found for user: ${webpageUsername}.`);
+                    ws.send(JSON.stringify({ type: "update", data: { switches: {}, switchNames: [] }, username: webpageUsername }));
+                    return;
+                }
+
+                console.log(`Sending game data for user: ${webpageUsername}`, gameData);
+
+                ws.send(JSON.stringify({ type: "update", data: gameData, username: webpageUsername }));
             }
         } catch (error) {
             console.error("Error parsing message from client:", error);
@@ -116,7 +126,16 @@ app.get("/", (req, res) => {
 
 app.get('/login', (req, res) => {
     if (req.query.token) {
-        let tokenData = jwt.verify(req.query.token, KEY, { algorithms: ['RS256'] });
+        console.log("Received token:", req.query.token);
+
+        let tokenData;
+        try {
+            tokenData = jwt.verify(req.query.token, KEY, { algorithms: ['RS256'] });
+        } catch (error) {
+            console.error("Failed to verify token:", error);
+            return res.status(400).send("Invalid token.");
+        }
+
         req.session.token = tokenData;
         req.session.user = tokenData.username;
 
@@ -131,50 +150,61 @@ app.get('/login', (req, res) => {
             console.log(`Initialized game data for user: ${tokenData.username}`);
         }
 
-        // Send the OAuth username to the game instance
-        const oauthUsername = tokenData.username;
-        const gameUsername = oauthToGameUsernameMap[oauthUsername] || null;
-
-        if (gameUsername) {
-            console.log(`Sending OAuth username (${oauthUsername}) to game instance for game username (${gameUsername}).`);
-            // Use a mechanism to send this data to the game (e.g., WebSocket or HTTP request)
-        }
+        const oauthUsername = tokenData.username; // Webpage OAuth username
+        const serverOAuthUsername = oauthToGameUsernameMap[oauthUsername] || oauthUsername; // Server OAuth username
+        oauthToGameUsernameMap[oauthUsername] = serverOAuthUsername;
 
         console.log("Mapping stored:", oauthToGameUsernameMap);
         res.redirect('/blank');
     } else {
+        console.log("No token received. Redirecting to OAuth URL.");
         res.redirect(`${AUTH_URL}?redirectURL=${THIS_URL}`);
     }
 });
 
 // Endpoint to get the list of logged-in users
 app.get('/logged-in-users', (req, res) => {
-    const usersWithGameData = loggedInUsers.map((username) => ({
-        username,
-        switches: userGameData[username]?.switches || {},
-        switchNames: userGameData[username]?.switchNames || []
+    const usersWithGameData = loggedInUsers.map(username => ({
+        username, // OAuth username
+        gameUsername: oauthToGameUsernameMap[username] || null, // Game username
+        switches: userGameData[oauthToGameUsernameMap[username]]?.switches || {}, // Default to empty object if no data
+        switchNames: userGameData[oauthToGameUsernameMap[username]]?.switchNames || [] // Default to empty array if no data
     }));
+
+    console.log("Users with game data (including those without data):", usersWithGameData);
     res.json({ users: usersWithGameData });
 });
 
 app.get("/blank", isAuthenticated, (req, res) => {
     const username = req.session.user;
-    console.log("Username retrieved from session:", username); // Debugging log
+    console.log("Username retrieved from session:", username);
+
+    if (!username) {
+        console.error("No username found in session.");
+        return res.redirect('/login');
+    }
+
     res.render("blank", { username });
 });
 
 app.post("/store-username", (req, res) => {
-    const { username } = req.body;
+    const { username: webpageUsername } = req.body; // Webpage username
+    const oauthUsername = req.session.user; // OAuth username from the session
 
-    if (!username) {
-        return res.status(400).send("Username is required.");
+    console.log("Received data in /store-username:");
+    console.log("Webpage Username:", webpageUsername);
+    console.log("OAuth Username from session:", oauthUsername);
+
+    if (!webpageUsername || !oauthUsername) {
+        console.error("Both webpage and OAuth usernames are required.");
+        return res.status(400).send("Both webpage and OAuth usernames are required.");
     }
 
-    // Store the username in the session
-    req.session.username = username;
-    console.log("Username stored in session:", username); // Debugging log
+    // Map the OAuth username to the webpage username
+    oauthToGameUsernameMap[oauthUsername] = webpageUsername;
 
-    res.status(200).send("Username stored successfully.");
+    console.log(`Mapped OAuth username (${oauthUsername}) to webpage username (${webpageUsername}).`);
+    res.status(200).send("Username mapping stored successfully.");
 });
 
 app.get("/check-auth", (req, res) => {

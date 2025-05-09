@@ -8,22 +8,102 @@
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+            background-color: #f4f4f9;
+            color: #333;
         }
+
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+        }
+
+        label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        #userList {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px;
+            margin: 10px auto;
+            display: block;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
         #switchForm {
             display: none;
             margin-top: 20px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            margin: 20px auto;
         }
+
         .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             margin-bottom: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .switch-container label {
+            margin-right: 10px;
+            flex: 1;
+        }
+
+        .switch-container input[type="checkbox"] {
+            transform: scale(1.2);
+        }
+
+        button[type="submit"] {
+            display: block;
+            width: 100%;
+            max-width: 200px;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #45a049;
+        }
+
+        #selectedUser {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .error {
+            color: red;
+            font-weight: bold;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <h1>Switch Manager</h1>
-    <label for="userList">Select a User:</label>
-    <select id="userList">
-        <option value="">-- Select a User --</option>
-    </select>
+    <div style="text-align: center; margin-bottom: 20px;">
+        <label for="userList">Select a User:</label>
+        <select id="userList">
+            <option value="">-- Select a User --</option>
+        </select>
+    </div>
 
     <form id="switchForm">
         <h2>Switches for <span id="selectedUser"></span></h2>
@@ -44,16 +124,11 @@
 
             if (message.type === "update") {
                 const gameData = message.data;
-                const username = message.username; // OAuth username
+                const serverUsername = message.username; // OAuth username sent by the server
                 const selectedUser = document.getElementById("userList").value;
 
-                if (username === selectedUser) {
-                    console.log("Updating switches for user:", username);
-
-                    if (Object.keys(gameData.switches).length === 0) {
-                        console.log("No switches to display for user:", username);
-                        return;
-                    }
+                if (serverUsername && selectedUser === serverUsername) {
+                    console.log("Updating switches for user:", serverUsername);
 
                     const switchesDiv = document.getElementById("switches");
                     switchesDiv.innerHTML = ""; // Clear existing switches
@@ -82,7 +157,9 @@
                     });
 
                     document.getElementById("switchForm").style.display = "block";
-                    document.getElementById("selectedUser").textContent = username;
+                    document.getElementById("selectedUser").textContent = serverUsername;
+                } else {
+                    console.log(`Data received for user ${serverUsername}, but selected user is ${selectedUser}.`);
                 }
             }
         };
@@ -93,10 +170,12 @@
                 console.log("Logged-in users:", data.users);
 
                 const userList = document.getElementById("userList");
+                userList.innerHTML = '<option value="">-- Select a User --</option>'; // Reset dropdown
+
                 data.users.forEach(user => {
                     const option = document.createElement("option");
-                    option.value = user.username;
-                    option.textContent = user.username;
+                    option.value = user.username; // Use OAuth username as the value
+                    option.textContent = user.username; // Display the OAuth username
                     userList.appendChild(option);
                 });
 
@@ -113,6 +192,14 @@
             })
             .catch(error => console.error("Error fetching logged-in users:", error));
 
+        fetch("/store-username", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: document.getElementById("userList").value }) // Send the selected username
+        })
+            .then(() => console.log("Webpage username sent to server."))
+            .catch(error => console.error("Error sending webpage username to server:", error));
+
         document.getElementById("switchForm").addEventListener("submit", (event) => {
             event.preventDefault();
 
@@ -128,7 +215,10 @@
 
             console.log("Submitting updated switches for user:", selectedUser, switches);
 
-            ws.send(JSON.stringify({ type: "updateSwitches", data: { switches }, username: selectedUser }));
+            ws.send(JSON.stringify({
+                type: "updateSwitches",
+                data: { username: selectedUser, switches }
+            }));
         });
     </script>
 </body>

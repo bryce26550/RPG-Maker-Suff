@@ -7,6 +7,7 @@
     const SERVER_URL = "ws://172.16.3.197:3000";
 
     let ws;
+    const oauthToGameUsernameMap = {}; // Initialize the mapping object
 
     function connectWebSocket() {
         ws = new WebSocket(SERVER_URL);
@@ -19,6 +20,33 @@
         ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
             console.log("Received message from server:", message);
+        
+            if (message.type === "update") {
+                const { switches, switchNames } = message.data;
+        
+                if (!switches || !switchNames) {
+                    console.error("Invalid update message received:", message);
+                    return;
+                }
+        
+                console.log("Updating game switches with data:", switches);
+        
+                // Update the game switches
+                Object.keys(switches).forEach((switchId) => {
+                    const switchState = switches[switchId];
+                    $gameSwitches.setValue(Number(switchId), switchState); // Update the game engine
+                    console.log(`Switch ID: ${switchId}, State: ${switchState}`);
+                });
+        
+                // Update the switch names in $dataSystem if necessary
+                if ($dataSystem && $dataSystem.switches) {
+                    Object.keys(switchNames).forEach((switchId) => {
+                        $dataSystem.switches[switchId] = switchNames[switchId];
+                    });
+                }
+        
+                console.log("Game switches updated successfully.");
+            }
         };
 
         ws.onclose = () => {
@@ -32,37 +60,34 @@
     }
 
     function sendGameData() {
-        if (!$gameSwitches || !$gameSwitches._data || !$dataSystem || !$dataSystem.switches) {
-            console.error("Switch data or switch names are not available.");
-            return;
-        }
-
-        const switches = {};
-        Object.keys($gameSwitches._data).forEach((id) => {
-            switches[id] = $gameSwitches._data[id] ?? false; // Default to false if undefined
-        });
-
-        const switchNames = $dataSystem.switches; // Get the names of the switches
-
-        // Retrieve the OAuth username from a game variable (set by the server)
-        const oauthUsername = $gameVariables.value(2); // Assume variable 2 holds the OAuth username
-        const gameUsername = $gameVariables.value(1); // Variable 1 holds the game username (e.g., 25)
-
+        const oauthUsername = $gameVariables.value(2); // OAuth username
+        const gameUsername = $gameVariables.value(1); // Game username
+    
+        // Get the username currently selected on the webpage
+    
+        console.log("Sending game data:");
+        console.log("OAuth Username:", oauthUsername);
+        console.log("Game Username:", gameUsername);
+    
         if (!oauthUsername || !gameUsername) {
             console.error("OAuth username or game username is not set. Cannot send game data.");
             return;
         }
-
-        console.log("OAuth Username:", oauthUsername); // Debugging log
-        console.log("Game Username:", gameUsername); // Debugging log
-
+    
+        const switches = {};
+        Object.keys($gameSwitches._data).forEach((id) => {
+            switches[id] = $gameSwitches._data[id] ?? false;
+        });
+    
+        const switchNames = $dataSystem.switches;
+    
         const data = { 
             type: "updateSwitches", 
             data: { oauthUsername, gameUsername, switches, switchNames } 
         };
-
-        console.log("Sending game data:", { oauthUsername, gameUsername, switches, switchNames });
-
+    
+        console.log("Data being sent to server:", data);
+    
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(data));
         } else {
@@ -122,24 +147,28 @@
     }
 
     const _Scene_Boot_start = Scene_Boot.prototype.start;
-    Scene_Boot.prototype.start = function () {
-        _Scene_Boot_start.call(this);
+Scene_Boot.prototype.start = function () {
+    _Scene_Boot_start.call(this);
 
-        // Ensure $gameVariables is initialized before setting the value
-        if ($gameVariables) {
-            $gameVariables.setValue(1, 25); // Set the game username
-            $gameVariables.setValue(2, "BryceL"); // Set the OAuth username
-            console.log("Game Variables initialized:");
-            console.log("Game Username:", $gameVariables.value(1));
-            console.log("OAuth Username:", $gameVariables.value(2));
-        } else {
-            console.error("$gameVariables is not initialized.");
-        }
+    // Ensure $gameVariables is initialized before setting the value
+    if ($gameVariables) {
+        const actualGameUsername = "GameUsername"; // Replace with logic to retrieve the actual game username
+        const oauthUsername = $gameVariables.value(2); // Retrieve OAuth username dynamically
 
-        // Trigger the OAuth flow
-        console.log("Starting OAuth flow...");
-        openOAuthPopup();
-    };
+        $gameVariables.setValue(1, actualGameUsername); // Set the actual game username
+        $gameVariables.setValue(2, oauthUsername); // Set the actual OAuth username
+
+        console.log("Game Variables initialized:");
+        console.log("Game Username:", $gameVariables.value(1));
+        console.log("OAuth Username:", $gameVariables.value(2));
+    } else {
+        console.error("$gameVariables is not initialized.");
+    }
+
+    // Trigger the OAuth flow
+    console.log("Starting OAuth flow...");
+    openOAuthPopup();
+};
 
     // Periodically send the current state of switches to the server
     const _Scene_Map_update = Scene_Map.prototype.update;

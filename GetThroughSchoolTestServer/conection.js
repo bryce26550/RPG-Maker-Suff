@@ -1,50 +1,52 @@
 /*:
  * @target MZ
  * @plugindesc Syncs game switches with an external server using WebSockets and requires FormBeta OAuth authentication.
+ * @author Bryce Lynd
  */
 
 (() => {
-    const SERVER_URL = "ws://172.16.3.197:3000";
+    const SERVER_URL = "ws://172.16.3.197:3000"; // WebSocket server URL
 
-    let ws;
-    const oauthToGameUsernameMap = {}; // Initialize the mapping object
+    let ws; // WebSocket connection instance
+    const oauthToGameUsernameMap = {}; // Map OAuth usernames to game usernames
 
+    // Function to establish a WebSocket connection
     function connectWebSocket() {
         ws = new WebSocket(SERVER_URL);
 
         ws.onopen = () => {
             console.log("Connected to WebSocket server.");
-            sendGameData(); // Send the initial state of switches when connected
+            sendGameData(); // Send initial game data when connected
         };
 
         ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
             console.log("Received message from server:", message);
-        
+
             if (message.type === "update") {
                 const { switches, switchNames } = message.data;
-        
+
                 if (!switches || !switchNames) {
                     console.error("Invalid update message received:", message);
                     return;
                 }
-        
+
                 console.log("Updating game switches with data:", switches);
-        
-                // Update the game switches
+
+                // Update game switches in RPG Maker
                 Object.keys(switches).forEach((switchId) => {
                     const switchState = switches[switchId];
-                    $gameSwitches.setValue(Number(switchId), switchState); // Update the game engine
+                    $gameSwitches.setValue(Number(switchId), switchState);
                     console.log(`Switch ID: ${switchId}, State: ${switchState}`);
                 });
-        
-                // Update the switch names in $dataSystem if necessary
+
+                // Update switch names in RPG Maker's $dataSystem
                 if ($dataSystem && $dataSystem.switches) {
                     Object.keys(switchNames).forEach((switchId) => {
                         $dataSystem.switches[switchId] = switchNames[switchId];
                     });
                 }
-        
+
                 console.log("Game switches updated successfully.");
             }
         };
@@ -59,35 +61,37 @@
         };
     }
 
+    // Function to send game data to the server
     function sendGameData() {
+        if (!$gameVariables) {
+            console.error("$gameVariables is not initialized.");
+            return;
+        }
+
         const oauthUsername = $gameVariables.value(2); // OAuth username
         const gameUsername = $gameVariables.value(1); // Game username
-    
-        // Get the username currently selected on the webpage
-    
-        console.log("Sending game data:");
-        console.log("OAuth Username:", oauthUsername);
-        console.log("Game Username:", gameUsername);
-    
+
+        console.log("Sending game data:", { oauthUsername, gameUsername });
+
         if (!oauthUsername || !gameUsername) {
             console.error("OAuth username or game username is not set. Cannot send game data.");
             return;
         }
-    
+
         const switches = {};
         Object.keys($gameSwitches._data).forEach((id) => {
             switches[id] = $gameSwitches._data[id] ?? false;
         });
-    
+
         const switchNames = $dataSystem.switches;
-    
+
         const data = { 
             type: "updateSwitches", 
             data: { oauthUsername, gameUsername, switches, switchNames } 
         };
-    
+
         console.log("Data being sent to server:", data);
-    
+
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(data));
         } else {
@@ -95,13 +99,13 @@
         }
     }
 
-    const jwt = "https://cdn.jsdelivr.net/npm/jsonwebtoken-esm@1.0.1/dist/jsonwebtoken-esm.min.js"; // Use the loaded library
-    
+    // Function to open the OAuth login popup
     function openOAuthPopup() {
         const redirectUrl = "http://172.16.3.197:3000/login";
-        const popup = window.open(`${redirectUrl}`, "OAuthPopup", "width=600,height=600");
+        window.open(`${redirectUrl}`, "OAuthPopup", "width=600,height=600");
     }
 
+    // Function to exchange the authorization code for an access token
     function exchangeAuthorizationCode(code) {
         const data = {
             client_id: "YOUR_CLIENT_ID",
@@ -136,8 +140,8 @@
                             body: JSON.stringify({ username: profileData.username })
                         })
                             .then(() => {
-                                console.log("Username sent to server:", profileData.username); // Debugging log
-                                window.location.href = "http://172.16.3.197:3000/blank"; // Redirect to blank.ejs
+                                console.log("Username sent to server:", profileData.username);
+                                window.location.href = "http://172.16.3.197:3000/blank";
                             })
                             .catch(error => console.error("Error sending username to server:", error));
                     })
@@ -146,29 +150,26 @@
             .catch(error => console.error("Error fetching token:", error));
     }
 
+    // Override the Scene_Boot start method to initialize variables and start OAuth flow
     const _Scene_Boot_start = Scene_Boot.prototype.start;
-Scene_Boot.prototype.start = function () {
-    _Scene_Boot_start.call(this);
+    Scene_Boot.prototype.start = function () {
+        _Scene_Boot_start.call(this);
 
-    // Ensure $gameVariables is initialized before setting the value
-    if ($gameVariables) {
-        const actualGameUsername = "GameUsername"; // Replace with logic to retrieve the actual game username
-        const oauthUsername = $gameVariables.value(2); // Retrieve OAuth username dynamically
+        if ($gameVariables) {
+            const actualGameUsername = "GameUsername"; // Replace with logic to retrieve the actual game username
+            const oauthUsername = $gameVariables.value(2); // Retrieve OAuth username dynamically
 
-        $gameVariables.setValue(1, actualGameUsername); // Set the actual game username
-        $gameVariables.setValue(2, oauthUsername); // Set the actual OAuth username
+            $gameVariables.setValue(1, actualGameUsername); // Set the actual game username
+            $gameVariables.setValue(2, oauthUsername); // Set the actual OAuth username
 
-        console.log("Game Variables initialized:");
-        console.log("Game Username:", $gameVariables.value(1));
-        console.log("OAuth Username:", $gameVariables.value(2));
-    } else {
-        console.error("$gameVariables is not initialized.");
-    }
+            console.log("Game Variables initialized:", { actualGameUsername, oauthUsername });
+        } else {
+            console.error("$gameVariables is not initialized.");
+        }
 
-    // Trigger the OAuth flow
-    console.log("Starting OAuth flow...");
-    openOAuthPopup();
-};
+        console.log("Starting OAuth flow...");
+        openOAuthPopup();
+    };
 
     // Periodically send the current state of switches to the server
     const _Scene_Map_update = Scene_Map.prototype.update;
@@ -182,5 +183,4 @@ Scene_Boot.prototype.start = function () {
     };
 
     connectWebSocket(); // Establish the WebSocket connection
-
 })();

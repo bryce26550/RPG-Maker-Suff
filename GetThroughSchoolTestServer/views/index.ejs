@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Switch Manager</title>
     <style>
+        /* Basic styling for the webpage */
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
@@ -23,6 +24,7 @@
             display: block;
         }
 
+        /* Dropdown for selecting users */
         #userList {
             width: 100%;
             max-width: 300px;
@@ -34,8 +36,9 @@
             font-size: 16px;
         }
 
+        /* Form for managing switches */
         #switchForm {
-            display: none;
+            display: none; /* Hidden by default until a user is selected */
             margin-top: 20px;
             background: #fff;
             padding: 20px;
@@ -45,6 +48,7 @@
             margin: 20px auto;
         }
 
+        /* Styling for individual switches */
         .switch-container {
             display: flex;
             align-items: center;
@@ -62,9 +66,10 @@
         }
 
         .switch-container input[type="checkbox"] {
-            transform: scale(1.2);
+            transform: scale(1.2); /* Make checkboxes larger */
         }
 
+        /* Submit button styling */
         button[type="submit"] {
             display: block;
             width: 100%;
@@ -84,11 +89,13 @@
             background-color: #45a049;
         }
 
+        /* Highlight selected user */
         #selectedUser {
             color: #4CAF50;
             font-weight: bold;
         }
 
+        /* Error message styling */
         .error {
             color: red;
             font-weight: bold;
@@ -99,12 +106,14 @@
 <body>
     <h1>Switch Manager</h1>
     <div style="text-align: center; margin-bottom: 20px;">
+        <!-- Dropdown for selecting a user -->
         <label for="userList">Select a User:</label>
         <select id="userList">
             <option value="">-- Select a User --</option>
         </select>
     </div>
 
+    <!-- Form for managing switches -->
     <form id="switchForm">
         <h2>Switches for <span id="selectedUser"></span></h2>
         <div id="switches"></div>
@@ -112,17 +121,21 @@
     </form>
 
     <script>
+        // Establish a WebSocket connection to the server
         const ws = new WebSocket("ws://172.16.3.197:3000");
 
+        // Log when the WebSocket connection is successfully opened
         ws.onopen = () => {
             console.log("Connected to WebSocket server.");
         };
 
+        // Handle incoming messages from the WebSocket server
         ws.onmessage = (event) => {
-            const message = JSON.parse(event.data);
+            const message = JSON.parse(event.data); // Parse the incoming message
             console.log("Received message from server:", message);
 
             if (message.type === "update") {
+                // Update the switches for the selected user
                 const gameData = message.data;
                 const serverUsername = message.username; // OAuth username sent by the server
                 const selectedUser = document.getElementById("userList").value;
@@ -133,6 +146,7 @@
                     const switchesDiv = document.getElementById("switches");
                     switchesDiv.innerHTML = ""; // Clear existing switches
 
+                    // Render each switch dynamically
                     Object.keys(gameData.switches).forEach((switchId) => {
                         const switchState = gameData.switches[switchId];
                         const switchName = gameData.switchNames[switchId] || `Switch ${switchId}`;
@@ -156,6 +170,7 @@
                         switchesDiv.appendChild(div);
                     });
 
+                    // Show the form and update the selected user's name
                     document.getElementById("switchForm").style.display = "block";
                     document.getElementById("selectedUser").textContent = serverUsername;
                 } else {
@@ -164,6 +179,7 @@
             }
         };
 
+        // Fetch the list of logged-in users from the server
         fetch("/logged-in-users")
             .then(response => response.json())
             .then(data => {
@@ -172,6 +188,7 @@
                 const userList = document.getElementById("userList");
                 userList.innerHTML = '<option value="">-- Select a User --</option>'; // Reset dropdown
 
+                // Populate the dropdown with users
                 data.users.forEach(user => {
                     const option = document.createElement("option");
                     option.value = user.username; // Use OAuth username as the value
@@ -179,19 +196,23 @@
                     userList.appendChild(option);
                 });
 
+                // Handle user selection
                 userList.addEventListener("change", () => {
                     const selectedUser = userList.value;
                     console.log("User selected:", selectedUser);
 
                     if (selectedUser) {
+                        // Request game data for the selected user
                         ws.send(JSON.stringify({ type: "requestGameData", username: selectedUser }));
                     } else {
+                        // Hide the form if no user is selected
                         document.getElementById("switchForm").style.display = "none";
                     }
                 });
             })
             .catch(error => console.error("Error fetching logged-in users:", error));
 
+        // Send the selected username to the server
         fetch("/store-username", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -200,12 +221,14 @@
             .then(() => console.log("Webpage username sent to server."))
             .catch(error => console.error("Error sending webpage username to server:", error));
 
+        // Handle form submission to save switch changes
         document.getElementById("switchForm").addEventListener("submit", (event) => {
             event.preventDefault();
 
             const switches = {};
             const checkboxes = document.querySelectorAll("#switches input[type='checkbox']");
 
+            // Collect the state of all switches
             checkboxes.forEach((checkbox) => {
                 const switchId = checkbox.id.split("-")[1];
                 switches[switchId] = checkbox.checked;
@@ -215,6 +238,7 @@
 
             console.log("Submitting updated switches for user:", selectedUser, switches);
 
+            // Send the updated switches to the server
             ws.send(JSON.stringify({
                 type: "updateSwitches",
                 data: { username: selectedUser, switches }
